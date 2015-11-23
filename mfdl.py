@@ -10,6 +10,14 @@ import urllib
 import glob
 import shutil
 import re
+import requests
+from functools import reduce 
+"""from urllib import urlopen"""
+try:
+    import urllib.request as ur
+except ImportError: 
+    import urllib as ur
+
 from zipfile import ZipFile
 try:
     from bs4 import BeautifulSoup
@@ -27,8 +35,9 @@ URL_BASE = "http://mangafox.me/"
 
 def get_page_soup(url):
     """Download a page and return a BeautifulSoup object of the html"""
-    with closing(urllib.urlopen(url)) as html_file:
-        return BeautifulSoup(html_file.read())
+    req = requests.get (url)
+    html = req.content
+    return BeautifulSoup (html,'html.parser');
 
 
 def get_chapter_urls(manga_name):
@@ -84,9 +93,12 @@ def get_chapter_image_urls(url_fragment):
         print('page: {0}'.format(page))
         print('Getting image url from {0}{1}.html'.format(url_fragment, page))
         page_soup = get_page_soup(chapter_url + page + '.html')
-        images = page_soup.findAll('img', {'id': 'image'})
+
+        images = page_soup.findAll('img', {'id':'image'})
+        print ('Found {0} image urls'.format (len (images)))
         if images:
             image_urls.append(images[0]['src'])
+        
     return image_urls
 
 
@@ -104,7 +116,9 @@ def download_urls(image_urls, manga_name, chapter_number):
     for i, url in enumerate(image_urls):
         filename = './{0}/{1}/{2:03}.jpg'.format(manga_name, chapter_number, i)
         print('Downloading {0} to {1}'.format(url, filename))
-        urllib.urlretrieve(url, filename)
+        ur.urlretrieve(url, filename)
+        statinfo = os.stat(filename)
+        print('Downloaded {0} to {1}. Size: {2}'.format(url, filename,statinfo.st_size))
 
 
 def make_cbz(dirname):
@@ -149,17 +163,19 @@ def download_manga(manga_name, chapter_number=None):
         print('Chapter ' + chapter_number)
         print('===============================================')
         image_urls = get_chapter_image_urls(url_fragment)
+        print ("Downloading {0} images".format (len (image_urls)))
         download_urls(image_urls, manga_name, chapter_number)
         download_dir = './{0}/{1}'.format(manga_name, chapter_number)
         make_cbz(download_dir)
         shutil.rmtree(download_dir)
     else:
-        for chapter_number, url_fragment in chapter_urls.iteritems():
+        for chapter_number, url_fragment in chapter_urls.items():
             chapter_number = get_chapter_number(url_fragment)
             print('===============================================')
             print('Chapter ' + chapter_number)
             print('===============================================')
             image_urls = get_chapter_image_urls(url_fragment)
+            print ("Downloading {0} images".format (len (image_urls)))
             download_urls(image_urls, manga_name, chapter_number)
             download_dir = './{0}/{1}'.format(manga_name, chapter_number)
             make_cbz(download_dir)
